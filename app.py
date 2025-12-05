@@ -136,7 +136,7 @@ def main():
     st.markdown("---")
     
     # Load model
-    model, scaler, feature_names = load_model_artifacts()
+    model, scaler = load_model_artifacts()
     
     if model is None:
         st.stop()
@@ -186,15 +186,15 @@ def main():
     
     # Main content area
     if input_mode == "Manual Entry":
-        manual_entry_mode(model, scaler, feature_names, optimal_threshold)
+        manual_entry_mode(model, scaler, optimal_threshold)
     
     elif input_mode == "Batch Upload":
-        batch_upload_mode(model, scaler, feature_names, optimal_threshold)
+        batch_upload_mode(model, scaler, optimal_threshold)
     
     elif input_mode == "Quick Test":
-        quick_test_mode(model, scaler, feature_names, optimal_threshold)
+        quick_test_mode(model, scaler, optimal_threshold)
 
-def manual_entry_mode(model, scaler, feature_names, optimal_threshold):
+def manual_entry_mode(model, scaler, optimal_threshold):
     """Manual entry interface for single predictions"""
     st.header("📝 Manual Credit Application Entry")
     
@@ -313,8 +313,8 @@ def manual_entry_mode(model, scaler, feature_names, optimal_threshold):
         # Engineer features
         input_engineered = engineer_features(input_data)
         
-        # Ensure correct feature order
-        input_engineered = input_engineered[feature_names]
+        # # Ensure correct feature order
+        # input_engineered = input_engineered[feature_names]
         
         # Scale features
         input_scaled = scaler.transform(input_engineered)
@@ -328,7 +328,7 @@ def manual_entry_mode(model, scaler, feature_names, optimal_threshold):
         # Display results
         display_prediction_results(probability, metrics, monthly_income)
 
-def batch_upload_mode(model, scaler, feature_names, optimal_threshold):
+def batch_upload_mode(model, scaler, optimal_threshold):
     """Batch upload interface for multiple predictions"""
     st.header("📤 Batch Upload for Multiple Predictions")
     
@@ -362,8 +362,8 @@ def batch_upload_mode(model, scaler, feature_names, optimal_threshold):
                 # Engineer features
                 df_engineered = engineer_features(df)
                 
-                # Ensure correct feature order
-                df_engineered = df_engineered[feature_names]
+                # # Ensure correct feature order
+                # df_engineered = df_engineered[feature_names]
                 
                 # Scale features
                 df_scaled = scaler.transform(df_engineered)
@@ -500,8 +500,8 @@ def quick_test_mode(model, scaler, feature_names, optimal_threshold):
         # Engineer features
         input_engineered = engineer_features(input_data)
         
-        # Ensure correct feature order
-        input_engineered = input_engineered[feature_names]
+        # # Ensure correct feature order
+        # input_engineered = input_engineered[feature_names]
         
         # Scale features
         input_scaled = scaler.transform(input_engineered)
