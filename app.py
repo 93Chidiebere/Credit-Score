@@ -61,15 +61,22 @@ def load_model_artifacts():
         model = joblib.load('tcgm_credit_scoring_model.pkl')
         scaler = joblib.load('scaler.pkl')
         
-        # # Load feature names
-        # with open('feature_names.txt', 'r') as f:
-        #     feature_names = f.read().splitlines()
+        # Fix missing init_pred attribute if needed
+        if not hasattr(model, 'init_pred'):
+            model.init_pred = 0.0
         
-        return model, scaler #feature_names
+        if not hasattr(model, 'learning_rate'):
+            model.learning_rate = 0.1
+        
+        if not hasattr(model, 'n_estimators'):
+            model.n_estimators = 80
+        
+        return model, scaler
+        
     except FileNotFoundError as e:
         st.error(f"⚠️ Model files not found: {e}")
-        st.info("Please ensure model files are in the same directory:\n- tcgm_credit_scoring_model.pkl\n- scaler.pkl\n- feature_names.txt")
-        return None, None, None
+        st.info("Please ensure model files are in the same directory:\n- tcgm_credit_scoring_model.pkl\n- scaler.pkl")
+        return None, None
 
 # Feature engineering function
 def engineer_features(data):
@@ -96,6 +103,35 @@ def engineer_features(data):
     df['HasDelinquency'] = (df['TotalDelinquencies'] > 0).astype(int)
     
     return df
+
+# Safe prediction wrapper
+def safe_predict_proba(model, X_scaled):
+    """Safely predict probabilities with error handling"""
+    try:
+        # Try normal prediction
+        probabilities = model.predict_proba(X_scaled)
+        return probabilities[:, 1]
+    except AttributeError as e:
+        # Handle missing init_pred or other attributes
+        st.warning(f"⚠️ Model compatibility issue detected: {e}")
+        
+        # Fix missing attributes
+        if not hasattr(model, 'init_pred'):
+            model.init_pred = 0.0
+        if not hasattr(model, 'learning_rate'):
+            model.learning_rate = 0.1
+        
+        # Retry prediction
+        try:
+            probabilities = model.predict_proba(X_scaled)
+            return probabilities[:, 1]
+        except Exception as retry_error:
+            st.error(f"❌ Prediction failed: {retry_error}")
+            st.info("Please retrain the model with the current TCGM version (0.1.3)")
+            return None
+    except Exception as e:
+        st.error(f"❌ Unexpected error during prediction: {e}")
+        return None
 
 # Calculate financial metrics
 def calculate_financial_metrics(probability, monthly_income, optimal_threshold=0.35):
@@ -186,13 +222,13 @@ def main():
     
     # Main content area
     if input_mode == "Manual Entry":
-        manual_entry_mode(model, scaler, optimal_threshold)
+        manual_entry_mode(model, scaler, feature_names, optimal_threshold)
     
     elif input_mode == "Batch Upload":
-        batch_upload_mode(model, scaler, optimal_threshold)
+        batch_upload_mode(model, scaler, feature_names, optimal_threshold)
     
     elif input_mode == "Quick Test":
-        quick_test_mode(model, scaler, optimal_threshold)
+        quick_test_mode(model, scaler, feature_names, optimal_threshold)
 
 def manual_entry_mode(model, scaler, optimal_threshold):
     """Manual entry interface for single predictions"""
@@ -313,14 +349,17 @@ def manual_entry_mode(model, scaler, optimal_threshold):
         # Engineer features
         input_engineered = engineer_features(input_data)
         
-        # # Ensure correct feature order
-        # input_engineered = input_engineered[feature_names]
-        
         # Scale features
         input_scaled = scaler.transform(input_engineered)
         
-        # Make prediction
-        probability = model.predict_proba(input_scaled)[0, 1]
+        # Make prediction using safe wrapper
+        probabilities = safe_predict_proba(model, input_scaled)
+        
+        if probabilities is None:
+            st.error("❌ Prediction failed. Please check the model or retrain.")
+            return
+        
+        probability = probabilities[0]
         
         # Calculate financial metrics
         metrics = calculate_financial_metrics(probability, monthly_income, optimal_threshold)
@@ -362,14 +401,15 @@ def batch_upload_mode(model, scaler, optimal_threshold):
                 # Engineer features
                 df_engineered = engineer_features(df)
                 
-                # # Ensure correct feature order
-                # df_engineered = df_engineered[feature_names]
-                
                 # Scale features
                 df_scaled = scaler.transform(df_engineered)
                 
-                # Make predictions
-                probabilities = model.predict_proba(df_scaled)[:, 1]
+                # Make predictions using safe wrapper
+                probabilities = safe_predict_proba(model, df_scaled)
+                
+                if probabilities is None:
+                    st.error("❌ Batch prediction failed. Please check the model.")
+                    return
                 
                 # Add predictions to dataframe
                 df['DefaultProbability'] = probabilities
@@ -445,7 +485,7 @@ def batch_upload_mode(model, scaler, optimal_threshold):
         except Exception as e:
             st.error(f"❌ Error processing file: {e}")
 
-def quick_test_mode(model, scaler, feature_names, optimal_threshold):
+def quick_test_mode(model, scaler, optimal_threshold):
     """Quick test with preset scenarios"""
     st.header("⚡ Quick Test with Preset Scenarios")
     
@@ -500,14 +540,17 @@ def quick_test_mode(model, scaler, feature_names, optimal_threshold):
         # Engineer features
         input_engineered = engineer_features(input_data)
         
-        # # Ensure correct feature order
-        # input_engineered = input_engineered[feature_names]
-        
         # Scale features
         input_scaled = scaler.transform(input_engineered)
         
-        # Make prediction
-        probability = model.predict_proba(input_scaled)[0, 1]
+        # Make prediction using safe wrapper
+        probabilities = safe_predict_proba(model, input_scaled)
+        
+        if probabilities is None:
+            st.error("❌ Prediction failed. Please check the model.")
+            return
+        
+        probability = probabilities[0]
         
         # Calculate financial metrics
         metrics = calculate_financial_metrics(probability, scenario_data['MonthlyIncome'], optimal_threshold)
