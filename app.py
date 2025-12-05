@@ -61,11 +61,11 @@ def load_model_artifacts():
         model = joblib.load('tcgm_credit_scoring_model.pkl')
         scaler = joblib.load('scaler.pkl')
         
-        # Load feature names
-        with open('feature_names.txt', 'r') as f:
-            feature_names = f.read().splitlines()
+        # # Load feature names
+        # with open('feature_names.txt', 'r') as f:
+        #     feature_names = f.read().splitlines()
         
-        return model, scaler, feature_names
+        return model, scaler #feature_names
     except FileNotFoundError as e:
         st.error(f"⚠️ Model files not found: {e}")
         st.info("Please ensure model files are in the same directory:\n- tcgm_credit_scoring_model.pkl\n- scaler.pkl\n- feature_names.txt")
