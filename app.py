@@ -65,6 +65,12 @@ def load_model_artifacts():
         if not hasattr(model, 'init_pred'):
             model.init_pred = 0.0
         
+        if not hasattr(model, 'base_models'):
+            model.base_models = []
+        
+        if not hasattr(model, 'trees'):
+            model.trees = []
+        
         if not hasattr(model, 'learning_rate'):
             model.learning_rate = 0.1
         
@@ -112,25 +118,44 @@ def safe_predict_proba(model, X_scaled):
         probabilities = model.predict_proba(X_scaled)
         return probabilities[:, 1]
     except AttributeError as e:
-        # Handle missing init_pred or other attributes
-        st.warning(f"⚠️ Model compatibility issue detected: {e}")
+        error_msg = str(e)
+        st.warning(f"⚠️ Model compatibility issue detected: {error_msg}")
         
         # Fix missing attributes
-        if not hasattr(model, 'init_pred'):
+        if 'init_pred' in error_msg and not hasattr(model, 'init_pred'):
             model.init_pred = 0.0
-        if not hasattr(model, 'learning_rate'):
+            st.info("Fixed: Added init_pred attribute")
+        
+        if 'base_models' in error_msg and not hasattr(model, 'base_models'):
+            model.base_models = []
+            st.info("Fixed: Added base_models attribute")
+        
+        if 'learning_rate' in error_msg and not hasattr(model, 'learning_rate'):
             model.learning_rate = 0.1
+            st.info("Fixed: Added learning_rate attribute")
+        
+        if 'trees' in error_msg and not hasattr(model, 'trees'):
+            model.trees = []
+            st.info("Fixed: Added trees attribute")
         
         # Retry prediction
         try:
             probabilities = model.predict_proba(X_scaled)
             return probabilities[:, 1]
         except Exception as retry_error:
-            st.error(f"❌ Prediction failed: {retry_error}")
-            st.info("Please retrain the model with the current TCGM version (0.1.3)")
+            st.error(f"❌ Prediction still failed after fixes: {retry_error}")
+            st.error("**The model must be retrained with TCGM version 0.1.3**")
+            st.info("""
+            To fix this:
+            1. Go back to your training notebook
+            2. Ensure you have: `pip install tcgm==0.1.3`
+            3. Retrain your model
+            4. Save it again: `joblib.dump(model, 'tcgm_credit_scoring_model.pkl')`
+            """)
             return None
     except Exception as e:
         st.error(f"❌ Unexpected error during prediction: {e}")
+        st.error("Please check your model file and retrain if necessary")
         return None
 
 # Calculate financial metrics
@@ -222,13 +247,13 @@ def main():
     
     # Main content area
     if input_mode == "Manual Entry":
-        manual_entry_mode(model, scaler, feature_names, optimal_threshold)
+        manual_entry_mode(model, scaler, optimal_threshold)
     
     elif input_mode == "Batch Upload":
-        batch_upload_mode(model, scaler, feature_names, optimal_threshold)
+        batch_upload_mode(model, scaler, optimal_threshold)
     
     elif input_mode == "Quick Test":
-        quick_test_mode(model, scaler, feature_names, optimal_threshold)
+        quick_test_mode(model, scaler, optimal_threshold)
 
 def manual_entry_mode(model, scaler, optimal_threshold):
     """Manual entry interface for single predictions"""
